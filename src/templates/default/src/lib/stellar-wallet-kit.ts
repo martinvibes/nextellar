@@ -11,11 +11,8 @@ import {
 } from "@creit.tech/stellar-wallets-kit";
 
 // Placeholder for injected wallets. During scaffold-time this token is replaced
-// with an array literal. When running the template locally (e.g. dev server)
-// the token may not be replaced which results in a syntax error. Use a safe
-// default here to avoid parse failures.
-// @ts-ignore
-const INJECTED_WALLETS: string[] = [];
+// with an array literal.
+const INJECTED_WALLETS: string[] = ["freighter", "albedo", "lobstr"];
 
 let kitInstance: StellarWalletsKit | null = null;
 
