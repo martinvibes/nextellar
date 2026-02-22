@@ -34,7 +34,7 @@ export const getKit = (): StellarWalletsKit => {
     if (walletList.includes('hana')) modules.push(new HanaModule());
 
     kitInstance = new StellarWalletsKit({
-      network: '{{NETWORK}}' === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
+      network: ('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
       selectedWalletId: FREIGHTER_ID,
       modules: modules.length > 0 ? modules : [new FreighterModule(), new AlbedoModule(), new LobstrModule()],
     });
