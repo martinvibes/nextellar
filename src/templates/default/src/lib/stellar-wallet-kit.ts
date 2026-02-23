@@ -11,16 +11,24 @@ import {
 } from "@creit.tech/stellar-wallets-kit";
 
 // Placeholder for injected wallets
-// @ts-ignore
-const INJECTED_WALLETS: string[] = {{WALLETS}};
+const INJECTED_WALLETS_STR = '{{WALLETS}}';
+const INJECTED_WALLETS: string[] = INJECTED_WALLETS_STR.startsWith('[') 
+  ? JSON.parse(INJECTED_WALLETS_STR) 
+  : ['freighter', 'albedo', 'lobstr'];
 
 let kitInstance: StellarWalletsKit | null = null;
+let currentNetwork: WalletNetwork | null = null;
 
-export const getKit = (): StellarWalletsKit => {
+export const getKit = (network?: WalletNetwork): StellarWalletsKit => {
   if (typeof window === 'undefined') {
     return {} as StellarWalletsKit;
   }
   
+  // Re-initialize if network has changed
+  if (kitInstance && network && network !== currentNetwork) {
+    kitInstance = null;
+  }
+
   if (!kitInstance) {
     // Dynamic module loading based on INJECTED_WALLETS
     // or fallback to defaults if placeholder not replaced
@@ -33,8 +41,12 @@ export const getKit = (): StellarWalletsKit => {
     if (walletList.includes('xbull')) modules.push(new xBullModule());
     if (walletList.includes('hana')) modules.push(new HanaModule());
 
+    // Determine network: priority to passed param, then injected placeholder, then default to TESTNET
+    const targetNetwork = network || (('{{NETWORK}}' as string) === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET);
+    currentNetwork = targetNetwork;
+
     kitInstance = new StellarWalletsKit({
-      network: '{{NETWORK}}' === 'PUBLIC' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET,
+      network: targetNetwork,
       selectedWalletId: FREIGHTER_ID,
       modules: modules.length > 0 ? modules : [new FreighterModule(), new AlbedoModule(), new LobstrModule()],
     });
@@ -44,7 +56,7 @@ export const getKit = (): StellarWalletsKit => {
 };
 
 // Export as function to ensure lazy evaluation
-export const kit = () => getKit();
+export const kit = (network?: WalletNetwork) => getKit(network);
 
 interface signTransactionProps {
   unsignedTransaction: string;

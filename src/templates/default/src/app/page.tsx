@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from 'react';
 import WalletConnectButton from '../components/WalletConnectButton';
+import NetworkSwitcher from '../components/NetworkSwitcher';
 
 // Theme toggle hook
 function useTheme() {
@@ -163,6 +164,8 @@ export default function Home() {
               </a>
 
               <WalletConnectButton theme={theme} />
+              
+              <NetworkSwitcher />
 
               <a
                 href="https://github.com/nextellarlabs/nextellar"
