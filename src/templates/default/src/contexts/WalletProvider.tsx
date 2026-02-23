@@ -158,7 +158,6 @@ export function WalletProvider({
             setBalances(account.balances);
           } catch (error: unknown) {
             if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-              console.log(`Account ${address} not found. Fund it with XLM.`);
               setBalances([]);
             } else {
               console.error('Failed to load balances:', error);
@@ -225,7 +224,6 @@ export function WalletProvider({
       setBalances(account.balances);
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-        console.log(`Account ${publicKey} not found on testnet. Fund it with XLM to activate it.`);
         setBalances([]);
       } else {
         console.error('Failed to load balances:', error);
@@ -319,7 +317,6 @@ export function WalletProvider({
               setBalances(account.balances);
             } catch (error: unknown) {
               if (error && typeof error === 'object' && 'response' in error && (error as { response?: { status?: number } }).response?.status === 404) {
-                console.log(`Account ${address} not found. Fund it to activate.`);
                 setBalances([]);
               } else {
                 setBalances([]);
@@ -327,7 +324,6 @@ export function WalletProvider({
             }
           }
         } catch {
-          console.log('Auto-reconnect failed');
           if (typeof window !== 'undefined') {
             localStorage.removeItem('stellar_wallet_connected');
             localStorage.removeItem('stellar_wallet_id');

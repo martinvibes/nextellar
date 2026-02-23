@@ -10,11 +10,12 @@ import {
   ISupportedWallet,
 } from "@creit.tech/stellar-wallets-kit";
 
-// Placeholder for injected wallets
-const INJECTED_WALLETS_STR = '{{WALLETS}}';
-const INJECTED_WALLETS: string[] = INJECTED_WALLETS_STR.startsWith('[') 
-  ? JSON.parse(INJECTED_WALLETS_STR) 
-  : ['freighter', 'albedo', 'lobstr'];
+// Placeholder for injected wallets. During scaffold-time this token is replaced
+// with an array literal. When running the template locally (e.g. dev server)
+// the token may not be replaced which results in a syntax error. Use a safe
+// default here to avoid parse failures.
+// @ts-ignore
+const INJECTED_WALLETS: string[] = [];
 
 let kitInstance: StellarWalletsKit | null = null;
 let currentNetwork: WalletNetwork | null = null;
