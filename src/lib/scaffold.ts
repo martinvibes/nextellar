@@ -55,12 +55,19 @@ export async function scaffold(options: ScaffoldOptions) {
 
   const resolvedTemplateName = useTs ? templateName : "js-template";
 
-  const templateDir = path.resolve(
-    __dirname,
-    fs.existsSync(path.resolve(__dirname, "../../templates"))
-      ? `../../templates/${resolvedTemplateName}`
-      : `../../../src/templates/${resolvedTemplateName}`
-  );
+  // Resolve templates across src/dist and nested workspace layouts.
+  const templateRoots = [
+    path.resolve(__dirname, "../templates"),
+    path.resolve(__dirname, "../../templates"),
+    path.resolve(__dirname, "../../../src/templates"),
+    path.resolve(__dirname, "../../nextellar/src/templates"),
+    path.resolve(__dirname, "../../../nextellar/src/templates"),
+  ];
+  const templateRoot =
+    templateRoots.find((candidate) =>
+      fs.existsSync(path.join(candidate, resolvedTemplateName, "package.json"))
+    ) || templateRoots[templateRoots.length - 1];
+  const templateDir = path.join(templateRoot, resolvedTemplateName);
 
   const targetDir = path.resolve(process.cwd(), appName);
   const finalPackageManager = detectPackageManager(targetDir, packageManager);
@@ -79,12 +86,7 @@ export async function scaffold(options: ScaffoldOptions) {
     });
 
     if (withContracts) {
-      const contractsTemplateDir = path.resolve(
-        __dirname,
-        fs.existsSync(path.resolve(__dirname, "../../templates"))
-          ? "../../templates/contracts-template"
-          : "../../../src/templates/contracts-template"
-      );
+      const contractsTemplateDir = path.join(templateRoot, "contracts-template");
 
       if (await fs.pathExists(contractsTemplateDir)) {
         await fs.copy(contractsTemplateDir, targetDir, {
@@ -131,13 +133,26 @@ export async function scaffold(options: ScaffoldOptions) {
         wallets && wallets.length > 0
           ? JSON.stringify(wallets)
           : JSON.stringify(["freighter", "albedo", "lobstr"]),
-      "{{NEXTELLAR_VERSION}}": cliVersion || "0.0.0",
+      "{{NEXTELLAR_VERSION}}":
+        cliVersion ||
+        (() => {
+          try {
+            const pkgPath = fs.existsSync(path.resolve(__dirname, "../../package.json"))
+              ? path.resolve(__dirname, "../../package.json")
+              : path.resolve(__dirname, "../../../package.json");
+            const myPkg = fs.readJsonSync(pkgPath);
+            return myPkg.version || "0.0.0";
+          } catch {
+            return "0.0.0";
+          }
+        })(),
       "{{TEMPLATE_NAME}}": templateName,
       "{{TIMESTAMP}}": new Date().toISOString(),
     };
 
     const filesToProcess = [
       path.join(targetDir, "package.json"),
+      path.join(targetDir, "README.md"),
       path.join(targetDir, "src/contexts/WalletProvider.tsx"),
       path.join(targetDir, "src/contexts/WalletProvider.jsx"),
       path.join(targetDir, "src/lib/stellar-wallet-kit.ts"),
