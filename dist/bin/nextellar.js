@@ -45,6 +45,46 @@ program
         process.exit(1);
     }
 });
+// Add subcommand: nextellar add <feature> | nextellar add --list
+program
+    .command("add [feature]")
+    .description("Add a Stellar feature to an existing Next.js project")
+    .option("--list", "show all available features")
+    .option("--force", "overwrite existing files")
+    .option("--skip-install", "skip installing npm dependencies")
+    .option("--package-manager <manager>", "npm, yarn, or pnpm")
+    .action(async (feature, cmdOpts) => {
+    try {
+        const { runAdd } = await import("../src/lib/add.js");
+        const { listFeatures } = await import("../src/lib/features.js");
+        if (cmdOpts.list) {
+            const list = listFeatures();
+            console.log(pc.bold("Available features:\n"));
+            list.forEach(({ id, description }) => {
+                console.log(`  ${pc.cyan(id.padEnd(12))} ${pc.dim(description)}`);
+            });
+            console.log("");
+            return;
+        }
+        if (!feature || feature.trim() === "") {
+            console.error("Please specify a feature. Use " + pc.cyan("nextellar add --list") + " to see options.");
+            process.exit(1);
+        }
+        const result = await runAdd(feature, {
+            force: cmdOpts.force,
+            skipInstall: cmdOpts.skipInstall,
+            packageManager: cmdOpts.packageManager,
+        });
+        if (!result.success) {
+            console.error(result.message ?? "Add failed.");
+            process.exit(1);
+        }
+    }
+    catch (err) {
+        console.error("Add failed:", err?.message || err);
+        process.exit(1);
+    }
+});
 program
     .command("telemetry <action>")
     .description("Manage anonymous telemetry settings")
