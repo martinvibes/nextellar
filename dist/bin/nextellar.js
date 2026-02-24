@@ -10,6 +10,7 @@ import { upgrade } from "../src/lib/upgrade.js";
 import { runDeploy } from "../src/lib/deploy.js";
 import { displaySuccess, NEXTELLAR_LOGO } from "../src/lib/feedback.js";
 import { detectPackageManager } from "../src/lib/install.js";
+import { getTelemetryStatus, isTelemetryDisabledByEnv, maybeShowTelemetryNotice, setTelemetryEnabled, telemetryConfigPath, } from "../src/lib/telemetry.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // (doctor subcommand is registered later after `program` is created)
@@ -43,6 +44,35 @@ program
         console.error("Failed to run doctor:", err?.message || err);
         process.exit(1);
     }
+});
+program
+    .command("telemetry <action>")
+    .description("Manage anonymous telemetry settings")
+    .action(async (action) => {
+    const normalized = action.toLowerCase();
+    if (normalized === "status") {
+        const status = await getTelemetryStatus();
+        console.log(`Telemetry is ${status}.`);
+        console.log(`Config: ${telemetryConfigPath}`);
+        if (isTelemetryDisabledByEnv()) {
+            console.log("NEXTELLAR_TELEMETRY_DISABLED is set, so telemetry is forced off for this environment.");
+        }
+        return;
+    }
+    if (normalized === "disable") {
+        await setTelemetryEnabled(false);
+        console.log("Telemetry disabled.");
+        console.log(`Saved to: ${telemetryConfigPath}`);
+        return;
+    }
+    if (normalized === "enable") {
+        await setTelemetryEnabled(true);
+        console.log("Telemetry enabled.");
+        console.log(`Saved to: ${telemetryConfigPath}`);
+        return;
+    }
+    console.error(`Unknown telemetry action \"${action}\". Use: status, enable, disable.`);
+    process.exit(1);
 });
 program
     .command("upgrade")
@@ -89,7 +119,8 @@ program
     .option("--skip-install", "skip dependency installation after scaffolding", false)
     .option("--package-manager <manager>", "choose package manager (npm, yarn, pnpm)")
     .option("-c, --with-contracts", "scaffold Soroban smart contracts alongside the frontend", false)
-    .option("--install-timeout <ms>", "installation timeout in milliseconds", "1200000");
+    .option("--install-timeout <ms>", "installation timeout in milliseconds", "1200000")
+    .option("--no-telemetry", "disable telemetry for this invocation");
 program.action(async (projectName, options) => {
     const template = options.template || "default";
     const validTemplates = ["default", "minimal", "defi"];
@@ -111,6 +142,7 @@ program.action(async (projectName, options) => {
     }
     const wallets = options.wallets ? options.wallets.split(",") : [];
     try {
+        await maybeShowTelemetryNotice({ noTelemetryFlag: options.telemetry === false });
         await scaffold({
             appName: projectName,
             useTs,
@@ -123,6 +155,8 @@ program.action(async (projectName, options) => {
             skipInstall: options.skipInstall,
             packageManager: options.packageManager,
             installTimeout: parseInt(options.installTimeout),
+            telemetryEnabled: options.telemetry,
+            cliVersion: pkg.version,
         });
         const pkgManager = detectPackageManager(path.join(process.cwd(), projectName), options.packageManager);
         await displaySuccess(projectName, pkgManager, options.skipInstall);
