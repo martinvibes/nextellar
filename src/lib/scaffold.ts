@@ -44,9 +44,7 @@ export async function scaffold(options: ScaffoldOptions) {
   const telemetryNetwork =
     horizonUrl && horizonUrl.includes("public") ? "public" : "testnet";
   const telemetryWallets =
-    wallets && wallets.length > 0
-      ? wallets
-      : ["freighter", "albedo", "lobstr"];
+    wallets && wallets.length > 0 ? wallets : ["freighter", "albedo", "lobstr"];
 
   const templateName = template || "default";
   if (!useTs && templateName !== "default") {
@@ -54,16 +52,16 @@ export async function scaffold(options: ScaffoldOptions) {
       `Template "${templateName}" is not available for JavaScript yet. Please use the default template with --javascript.`
     );
   }
+
   const resolvedTemplateName = useTs ? templateName : "js-template";
 
-  // Point to source templates
-  // Resolve relative to this file's location in either src/lib or dist/src/lib
   const templateDir = path.resolve(
     __dirname,
     fs.existsSync(path.resolve(__dirname, "../../templates"))
-      ? `../../templates/${resolvedTemplateName}` // Development (src/lib -> src/templates)
-      : `../../../src/templates/${resolvedTemplateName}` // Production (dist/src/lib -> src/templates)
+      ? `../../templates/${resolvedTemplateName}`
+      : `../../../src/templates/${resolvedTemplateName}`
   );
+
   const targetDir = path.resolve(process.cwd(), appName);
   const finalPackageManager = detectPackageManager(targetDir, packageManager);
 
@@ -72,7 +70,6 @@ export async function scaffold(options: ScaffoldOptions) {
   }
 
   try {
-    // Copy template
     await fs.copy(templateDir, targetDir, {
       filter: (src) => {
         const basename = path.basename(src);
@@ -81,7 +78,6 @@ export async function scaffold(options: ScaffoldOptions) {
       preserveTimestamps: true,
     });
 
-    // Conditionally copy contracts and bindings
     if (withContracts) {
       const contractsTemplateDir = path.resolve(
         __dirname,
@@ -96,7 +92,6 @@ export async function scaffold(options: ScaffoldOptions) {
         });
       }
 
-      // Add scripts to package.json
       const pkgJsonPath = path.join(targetDir, "package.json");
       if (await fs.pathExists(pkgJsonPath)) {
         const pkgJson = await fs.readJson(pkgJsonPath);
@@ -107,7 +102,6 @@ export async function scaffold(options: ScaffoldOptions) {
         await fs.writeJson(pkgJsonPath, pkgJson, { spaces: 2 });
       }
 
-      // Append env vars to .env.example
       const envExamplePath = path.join(targetDir, ".env.example");
       await fs.appendFile(
         envExamplePath,
@@ -115,7 +109,6 @@ export async function scaffold(options: ScaffoldOptions) {
       );
     }
 
-    // --- TEMPLATE SUBSTITUTION LOGIC ---
     const replaceInFile = async (
       filePath: string,
       replacements: Record<string, string>
@@ -138,9 +131,11 @@ export async function scaffold(options: ScaffoldOptions) {
         wallets && wallets.length > 0
           ? JSON.stringify(wallets)
           : JSON.stringify(["freighter", "albedo", "lobstr"]),
+      "{{NEXTELLAR_VERSION}}": cliVersion || "0.0.0",
+      "{{TEMPLATE_NAME}}": templateName,
+      "{{TIMESTAMP}}": new Date().toISOString(),
     };
 
-    // Files to update
     const filesToProcess = [
       path.join(targetDir, "package.json"),
       path.join(targetDir, "src/contexts/WalletProvider.tsx"),
@@ -150,6 +145,7 @@ export async function scaffold(options: ScaffoldOptions) {
       path.join(targetDir, "src/hooks/useSorobanContract.ts"),
       path.join(targetDir, "src/hooks/useSorobanContract.js"),
       path.join(targetDir, ".env.example"),
+      path.join(targetDir, ".nextellar/config.json"),
     ];
 
     for (const filePath of filesToProcess) {
@@ -160,7 +156,6 @@ export async function scaffold(options: ScaffoldOptions) {
 
     console.log(`✔️  Scaffolded "${appName}" from template.`);
 
-    // Run installation
     const result = await runInstall({
       cwd: targetDir,
       skipInstall,
@@ -174,7 +169,6 @@ export async function scaffold(options: ScaffoldOptions) {
       );
     }
 
-    // Fire-and-forget telemetry; never blocks scaffolding.
     void trackScaffoldEvent(
       {
         template: telemetryTemplate,
@@ -192,7 +186,6 @@ export async function scaffold(options: ScaffoldOptions) {
       { noTelemetryFlag: telemetryEnabled === false }
     );
   } catch (error) {
-    // Fire-and-forget telemetry; never blocks error handling.
     void trackScaffoldEvent(
       {
         template: telemetryTemplate,
