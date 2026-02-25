@@ -49,6 +49,7 @@ export async function runInteractivePrompts(
     return null;
   }
 
+  
   const projectName = String(nameAnswer).trim();
 
   let horizonUrl: string | undefined;
