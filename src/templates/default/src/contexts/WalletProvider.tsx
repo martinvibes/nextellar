@@ -10,8 +10,9 @@ import {
   Memo,
   BASE_FEE
 } from '@stellar/stellar-sdk';
-import { ISupportedWallet } from "@creit.tech/stellar-wallets-kit";
+import { ISupportedWallet, WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { kit } from '../lib/stellar-wallet-kit';
+import { NETWORKS } from '../config/networks';
 
 const Server = Horizon.Server;
 
@@ -54,8 +55,11 @@ interface WalletContextState {
  * Wallet config context - exposes provider settings to hooks
  */
 interface WalletConfigContextState {
+  activeNetworkKey: string;
   horizonUrl: string;
+  sorobanUrl: string;
   network: string;
+  switchNetwork: (networkKey: string) => void;
 }
 
 /**
@@ -87,14 +91,37 @@ const WalletConfigContext = createContext<WalletConfigContextState | undefined>(
  */
 export function WalletProvider({
   children,
-  horizonUrl = 'https://horizon-testnet.stellar.org',
-  network = Networks.TESTNET
+  horizonUrl: initialHorizonUrl,
+  network: initialNetwork
 }: WalletProviderProps) {
+  const [activeNetworkKey, setActiveNetworkKey] = useState<string>('testnet');
   const [connected, setConnected] = useState(false);
   const [publicKey, setPublicKey] = useState<string>();
   const [walletName, setWalletName] = useState<string>();
   const [balances, setBalances] = useState<Balance[]>([]);
-  const [server] = useState(() => new Server(horizonUrl));
+
+  // Load saved network on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedNetwork = localStorage.getItem('stellar_network');
+      if (savedNetwork && NETWORKS[savedNetwork]) {
+        setActiveNetworkKey(savedNetwork);
+      }
+    }
+  }, []);
+
+  // Derive active settings from config or props
+  const config = NETWORKS[activeNetworkKey] || NETWORKS.testnet;
+  const horizonUrl = initialHorizonUrl || config.horizonUrl;
+  const sorobanUrl = config.sorobanUrl;
+  const network = initialNetwork || config.passphrase;
+
+  const [server, setServer] = useState(() => new Server(horizonUrl));
+
+  // Update server when network changes
+  useEffect(() => {
+    setServer(new Server(horizonUrl));
+  }, [horizonUrl]);
 
   /**
    * Connect to a Stellar wallet using the modal interface
@@ -102,7 +129,8 @@ export function WalletProvider({
   const connect = useCallback(async () => {
     try {
       // Get fresh kit instance (handles dynamic options)
-      const currentKit = kit();
+      const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
+      const currentKit = kit(walletNetwork);
 
       await currentKit.openModal({
         modalTitle: "Connect to your favorite wallet",
@@ -166,6 +194,24 @@ export function WalletProvider({
       console.error('Failed to disconnect wallet:', error);
     }
   }, []);
+
+  /**
+   * Switch the active network
+   */
+  const switchNetwork = useCallback((networkKey: string) => {
+    if (!NETWORKS[networkKey]) return;
+    
+    // Changing network requires disconnecting the current session 
+    // since accounts/balances are network-specific
+    if (connected) {
+      disconnect();
+    }
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stellar_network', networkKey);
+    }
+    setActiveNetworkKey(networkKey);
+  }, [connected, disconnect]);
 
   /**
    * Refresh balances for the connected wallet
@@ -256,7 +302,8 @@ export function WalletProvider({
 
       if (wasConnected === 'true' && savedWalletId && savedAddress) {
         try {
-          const currentKit = kit();
+          const walletNetwork = activeNetworkKey === 'mainnet' ? WalletNetwork.PUBLIC : WalletNetwork.TESTNET;
+          const currentKit = kit(walletNetwork);
           currentKit.setWallet(savedWalletId);
           const { address } = await currentKit.getAddress();
 
@@ -302,8 +349,11 @@ export function WalletProvider({
   };
 
   const configValue: WalletConfigContextState = {
+    activeNetworkKey,
     horizonUrl,
+    sorobanUrl,
     network,
+    switchNetwork,
   };
 
   return (
